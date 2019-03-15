@@ -5,7 +5,7 @@ const {
   wasmBindgenCmd,
   wasmBindgenDeps,
 } = require("../config.js");
-const { exec, joinCmd, exists, writeFile, readFile, unlink } = require("./common.js");
+const { exec, joinCmd, exists, writeFile, readFile, unlink, readdir } = require("./common.js");
 
 async function wasmGC(wasmFile, callback) {
   if (!await exists(wasmFile)) {
@@ -23,6 +23,15 @@ async function rustc(source, options = {}) {
 
   try {
     let args = [rustcCmd, rustFile];
+    let edition = '2018';
+    switch (options.edition) {
+      case '2015':
+      case '2018':
+        edition = options.edition;
+        break;
+    }
+    args.push('--edition=' + edition);
+    args.push("-Z unstable-options");
     args.push('--target=wasm32-unknown-unknown');
     args.push('--crate-type=cdylib');
     if (options.lto)
@@ -35,7 +44,6 @@ async function rustc(source, options = {}) {
       case '0':
       case '1':
       case '2':
-      case '2':
         args.push('-Copt-level=' + options.opt_level);
         break;
     }
@@ -44,6 +52,15 @@ async function rustc(source, options = {}) {
     for (let i = 0; i < wasmBindgenDeps.length; i++) {
       args.push('-L');
       args.push(wasmBindgenDeps[i]);
+      // Include all extern crates
+      if (edition == '2018') {
+        let files = await readdir(wasmBindgenDeps[i]);
+        for (let k in files) {
+          const crate = files[k];
+          args.push('--extern');
+          args.push(crate.substring(0, crate.lastIndexOf('-')));
+        }
+      }
     }
     let output;
     let success = false;

@@ -73,4 +73,16 @@ function unlink(path) {
   });
 }
 
-module.exports = {joinCmd, exec, exists, writeFile, readFile, mkdir, unlink};
+function readdir(path) {
+  return new Promise(function(resolve, reject) {
+    fs.readdir(path, (err, data) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(data);
+      }
+    });
+  });
+}
+
+module.exports = {joinCmd, exec, exists, writeFile, readFile, mkdir, unlink, readdir};

@@ -45,14 +45,30 @@ async function cargo(tar, options = {}) {
 
   let rustTar = crateDir + '/' + 'lib.tar';
   let wasmFile = crateDir + '/' + 'lib.wasm';
-  await writeFile(rustTar, new Buffer(tar, 'base64').toString('ascii'));
-
-  let args = ["tar", "xvf", rustTar, "-C", crateDir];
+  await writeFile(rustTar, tar);
+  let args = ["bash", "-c", "'cd " + crateDir + "; base64 -d " + rustTar + " > data.bin; tar xf data.bin -C .; rm data.bin'"];
   await exec(joinCmd(args));
 
   await writeFile(crateDir + '/Cargo.lock', await readFile(rootDir + '/../Cargo.lock'))
 
   try {
+    // Replace dependencies from the original Cargo file
+    let cargoTemplate = (await readFile(rootDir + '/../Cargo.toml')).toString('ascii');
+    let re = /(^\[dependencies\]([^][^\[].+)+)/m;
+    let deps = cargoTemplate.match(re);
+    let cargoUser = (await readFile(crateDir + '/Cargo.toml')).toString('ascii');
+    if (deps) {
+      if (cargoUser.match(re)) {
+        cargoUser = cargoUser.replace(re, deps[0]);
+      } else {
+        cargoUser = cargoUser + deps[0];
+      }
+    } else {
+      // Clear dependencies from user submitted file
+      cargoUser = cargoUser.replace(re, '');
+    }
+    await writeFile(crateDir + '/Cargo.toml', cargoUser);
+
     let args = [cargoCmd, "build"];
     args.push('--manifest-path=' + crateDir + '/' + 'Cargo.toml');
     args.push('--target=wasm32-unknown-unknown');
@@ -72,20 +88,12 @@ async function cargo(tar, options = {}) {
 
     let checkResult = checkBuildPlan(buildPlan);
 
-    if (!checkResult.success)
-      return checkResult;
+    // Disable build plan check
+    // if (!checkResult.success)
+    //   return checkResult;
 
     let output;
     let success = false;
-
-    // Copy dependencies from the original Cargo file
-    let cargoFile = (await readFile(rootDir + '/../Cargo.toml')).toString('ascii');
-    let re = /(\[dependencies\]([^][^\[].+)+)/m;
-    let deps = cargoFile.match(re);
-    if (deps) {
-      let rewritten = (await readFile(crateDir + '/Cargo.toml')) + deps[0];
-      await writeFile(crateDir + '/Cargo.toml', rewritten);
-    }
 
     try {
       output = await exec(joinCmd(args), {});

@@ -3,6 +3,7 @@ const {
   rustcCmd,
   wasmGCCmd,
   tempDir,
+  rootDir,
   wasmBindgenCmd,
   wasmBindgenDeps,
 } = require("../config.js");
@@ -49,10 +50,13 @@ async function cargo(tar, options = {}) {
   let args = ["tar", "xvf", rustTar, "-C", crateDir];
   await exec(joinCmd(args));
 
+  await writeFile(crateDir + '/Cargo.lock', await readFile(rootDir + '/../Cargo.lock'))
+
   try {
     let args = [cargoCmd, "build"];
     args.push('--manifest-path=' + crateDir + '/' + 'Cargo.toml');
     args.push('--target=wasm32-unknown-unknown');
+    args.push('--target-dir=' + rootDir + '/../target');
 
     if (!options.debug) {
       args.push('--release');
@@ -73,6 +77,15 @@ async function cargo(tar, options = {}) {
 
     let output;
     let success = false;
+
+    // Copy dependencies from the original Cargo file
+    let cargoFile = (await readFile(rootDir + '/../Cargo.toml')).toString('ascii');
+    let re = /(\[dependencies\]([^][^\[].+)+)/m;
+    let deps = cargoFile.match(re);
+    if (deps) {
+      let rewritten = (await readFile(crateDir + '/Cargo.toml')) + deps[0];
+      await writeFile(crateDir + '/Cargo.toml', rewritten);
+    }
 
     try {
       output = await exec(joinCmd(args), {});

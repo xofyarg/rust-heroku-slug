@@ -22,5 +22,5 @@ exports.rustcCmd = homeDir + '/.cargo/bin/rustc';
 exports.wasmGCCmd = homeDir + '/.cargo/bin/wasm-gc';
 exports.wasmBindgenCmd = homeDir + '/.cargo/bin/wasm-bindgen';
 exports.rustfmtCmd = homeDir + '/.cargo/bin/rustfmt';
-
+exports.rootDir = __dirname;
 exports.tempDir = "/tmp";
